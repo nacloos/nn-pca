@@ -2,13 +2,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
-
 from nn_pca import simulate_pca, simulate_projection
+
 
 np.random.seed(5)
 
-n = 2
-m = 100
+save_dir = "figures/"
 
 
 def generate_data(m):
@@ -22,9 +21,9 @@ def generate_data(m):
 def animate(fig, W_states, z_states, x_hat_states, x_states, save_name=""):
 	n_iter = W_states.shape[0]
 
-	W_line, = plt.plot([], [], color="darkorange", label="$w$", linewidth=2)
-	x_line, = plt.plot([], [], color="cornflowerblue", marker=".", linestyle="", label="$x$")
-	x_hat_line, = plt.plot([], [], color="yellowgreen", marker="x", linestyle="", label="$\\hat{x}$")
+	W_line, = plt.plot([], [], color="coral", label="$w$", linewidth=2)
+	x_line, = plt.plot([], [], color="black", marker=".", linestyle="", label="$x$")
+	x_hat_line, = plt.plot([], [], color="black", marker="x", linestyle="", label="$\\hat{x}$")
 
 	def animate_fun(i):
 		W_line.set_data([0, W_states[i,0,0]], [0, W_states[i,1,0]])
@@ -34,47 +33,75 @@ def animate(fig, W_states, z_states, x_hat_states, x_states, save_name=""):
   
 	anim = animation.FuncAnimation(fig, animate_fun, frames=n_iter, interval=20, blit=True)
 	plt.legend()
-	plt.show()
 
 	if save_name != "":
-		# anim.save("{}.html".format(save_name))
-		anim.save("{}.gif".format(save_name), writer="imagemagick")
+		anim.save("{}{}.gif".format(save_dir, save_name), writer="imagemagick")
 
-
-def plot_data(X):
-	eival, eivec = np.linalg.eig(1/n*X.T@X)
-
-	fig = plt.figure()
-	# plt.plot([0, W[0,0]], [0,W[1,0]], color="tab:red", label="$W$")
-	plt.scatter(X[:,0], X[:,1], marker=".", alpha=0.2, color="cornflowerblue")
-	plt.plot([0, 2*eivec[0,0]], [0,2*eivec[1,0]], color="tab:orange", label="$v_1$")
-	plt.plot([0, 2*eivec[0,1]], [0,2*eivec[1,1]], color="tab:orange", linestyle="dotted", label="$v_2$")
-	plt.axis('equal')
-	plt.legend()
 	plt.show()
 
 
-def plot_animation(X):		
+def plot_data(X, save_name=""):
 	eival, eivec = np.linalg.eig(1/n*X.T@X)
-	W = eivec[:,0].reshape(2, 1)
+	# sort in descending order
+	idx = np.argsort(eival)[::-1]
+	eival = eival[idx]
+	eivec = eivec[:,idx]
 
-	fig = plt.figure(dpi=130)
-	plt.scatter(X[:,0], X[:,1], marker=".", alpha=0.2, color="cornflowerblue")
-	plt.plot([0, 2*eivec[0,0]], [0,2*eivec[1,0]], color="moccasin", label="$v_1$", linewidth=2)
-	plt.plot([0, 2*eivec[0,1]], [0,2*eivec[1,1]], color="moccasin", linestyle="dotted", label="$v_2$", linewidth=2)
+	plt.scatter(X[:,0], X[:,1], marker=".", alpha=0.5, color="cornflowerblue")
+	plt.plot([0, 2*eivec[0,0]], [0,2*eivec[1,0]], color="coral", label="$v_1$")
+	plt.plot([0, 2*eivec[0,1]], [0,2*eivec[1,1]], color="coral", linestyle="dotted", label="$v_2$")
 	plt.axis('equal')
+	plt.axis('off')
 	plt.legend()
 
-	states = simulate_pca(X, 1, tau_W=30, return_states=True)
+	if save_name:
+		plt.savefig("{}{}.png".format(save_dir, save_name), transparent=True)
+
+
+def plot_animation(X, tau_slow, save_name=""):		
+	eival, eivec = np.linalg.eig(1/n*X.T@X)
+	# sort in descending order
+	idx = np.argsort(eival)[::-1]
+	eival = eival[idx]
+	eivec = eivec[:,idx]
+
+	W = eivec[:,0].reshape(2, 1)
+
+	plt.scatter(X[:,0], X[:,1], marker=".", alpha=0.4, color="cornflowerblue")
+	plt.plot([0, 2*eivec[0,0]], [0,2*eivec[1,0]], color="lightgray", label="$v_1$", linewidth=2)
+	plt.plot([0, 2*eivec[0,1]], [0,2*eivec[1,1]], color="lightgray", linestyle="dotted", label="$v_2$", linewidth=2)
+	plt.axis('equal')
+	plt.axis('off')
+	plt.legend()
+
+	states = simulate_pca(X, 1, tau_slow=tau_slow, return_states=True)
 	W_states, z_states, x_hat_states, x_states = states
 	W_states *= 2
 	states = W_states, z_states, x_hat_states, x_states
-	# animate(fig, *states, save_name="pca_anim")
-	animate(fig, *states)
+	animate(fig, *states, save_name=save_name)
 
 
 
-
+n = 2
+m = 100
 X = generate_data(m) # m x n
-# plot_data(X)
-plot_animation(X)
+
+
+fig = plt.figure(figsize=(6,4), dpi=130)
+plt.title("PCA on Gaussian data")
+plot_data(X, save_name="pca_gaussian")
+
+
+fig = plt.figure(figsize=(6,4), dpi=110)
+tau_slow = 60
+plt.title("$\\tau_{{slow}}={}$".format(tau_slow))
+# plot_animation(X, tau_slow, save_name="tau_slow_good")
+plot_animation(X, tau_slow)
+
+
+fig = plt.figure(figsize=(6,4), dpi=110)
+tau_slow = 5
+plt.title("$\\tau_{{slow}}={}$".format(tau_slow))
+# plot_animation(X, tau_slow, save_name="tau_slow_too_fast")
+plot_animation(X, tau_slow)
+

@@ -1,3 +1,7 @@
+"""
+Requires to download the MNIST train data in CSV format, for example here:
+https://www.python-course.eu/neural_network_mnist.php
+"""
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
@@ -6,8 +10,13 @@ import matplotlib.animation as animation
 from nn_pca import simulate_pca, simulate_projection
 
 
+np.random.seed(5)
+
+save_dir = "figures/"
+
+
 def project(V, X):
-	# Compute the orthogonal projections of the columns of X onto the columns of V (not necessarily orthogonal)
+	# Compute the orthogonal projections of the columns of X onto the columns of V (not necessarily orthogonal matrix)
 	return np.linalg.solve(V.T@V, V.T@X)
 
 
@@ -40,7 +49,7 @@ def animate_projection(fig, x, z_states, save_name=""):
 		z_line.set_data(z_states[i,0], z_states[i,1])
 		return z_line,
   
-	anim = animation.FuncAnimation(fig, animate_fun, frames=n_iter, interval=50, blit=True)
+	anim = animation.FuncAnimation(fig, animate_fun, frames=n_iter, interval=100, blit=True)
 	plt.legend()
 	plt.show()
 
@@ -59,12 +68,11 @@ def animate_pca(fig, X, V, W_states, z_states, x_hat_states, x_states, save_name
 	x_hat_line, = plt.plot([], [], color="black", marker="x", linestyle="", label="$\\hat{x}$")
 
 	def animate_fun(i):
-		# TODO: update scatter for zero digits and one digits, instead of for loop
-
+		# TODO: update scatter for zero digits and one digits, instead of for loop, to animate the projected data
 		# plot the data project onto the columns of V
-		proj_data = project(V[i], X.T).T
-		for j, data_line in enumerate(data_lines):
-			data_line.set_data(proj_data[j,0], proj_data[j,1])
+		# proj_data = project(V[i], X.T).T
+		# for j, data_line in enumerate(data_lines):
+		# 	data_line.set_data(proj_data[j,0], proj_data[j,1])
 
 		W = project(V[i], W_states[i]) / 3 # divide by 3 just to better visualize it
 		W_line1.set_data([0, W[0,0]], [0, W[1,0]])
@@ -73,32 +81,27 @@ def animate_pca(fig, X, V, W_states, z_states, x_hat_states, x_states, save_name
 		x_line.set_data(project(V[i], x_states[i])[0], project(V[i], x_states[i])[1])
 		x_hat_line.set_data(project(V[i], x_hat_states[i])[0], project(V[i], x_hat_states[i])[1])
 
-		lines = data_lines + [W_line1, W_line2, x_line, x_hat_line]
-		return lines
-		# x_line.set_data(x_states[i,0], x_states[i,1])
-		# x_hat_line.set_data(x_hat_states[i,0], x_hat_states[i,1])
-		# return W_line, x_line, x_hat_line,
+		return W_line1, W_line2, x_line, x_hat_line,
+		# lines = data_lines + [W_line1, W_line2, x_line, x_hat_line]
+		# return lines
   
-	anim = animation.FuncAnimation(fig, animate_fun, frames=n_iter, interval=20, blit=True)
-	plt.legend()
+	anim = animation.FuncAnimation(fig, animate_fun, frames=n_iter, interval=10, blit=True)
+	plt.legend(loc="lower left")
 	plt.axis('equal')
-	plt.show()
+	plt.xlim(-1, 0.5)
+	plt.axis("off")
 
 	if save_name != "":
-		# anim.save("{}.html".format(save_name))
-		anim.save("{}.gif".format(save_name), writer="imagemagick")
+		anim.save("{}{}.gif".format(save_dir, save_name), writer="imagemagick", fps=30)
 
-
+	plt.show()
 
 
 data_path = "mnist/"
-# train_data = np.loadtxt(data_path + "mnist_train.csv", delimiter=",")
-# data = np.loadtxt(data_path + "mnist_test.csv", delimiter=",", max_rows=1000) 
 data = np.loadtxt(data_path + "mnist_train.csv", delimiter=",", max_rows=5000) 
 data = data[np.logical_or(data[:,0] == 0, data[:,0] == 1)]
 labels = data[:,0] 	# mx1
 X = data[:,1:]		# mxn
-print(X.shape)
 
 # center data
 X = X - np.mean(X, axis=0)
@@ -106,32 +109,28 @@ X = X - np.mean(X, axis=0)
 X = X / np.max(np.linalg.norm(X, axis=1))
 
 
-
-
-# project the 2 columns of W onto the 2 principal components V, look at the norm of the projection to know whether span<W> = span<V>
-# project the reconstruction x_hat onto the 2 principal components
-# if span<W> = span<V>, the projection of x_hat and x should match
-
-
-
-
 eival, eivec = np.linalg.eig(1/X.shape[0] * X.T@X)
-# plt.figure()
-# plt.scatter(np.arange(10), eival[:10])
+# sort in descending order
+idx = np.argsort(eival)[::-1]
+eival = eival[idx]
+eivec = eivec[:,idx]
+
 
 V = np.real(eivec[:,:2]) # nx2
 
-fig = plt.figure()
-# plot_projected_data(V, X)
 
+# the code below can be used to check that the projection is computed corretly
+# plot_projected_data(V, X)
 # x = X[0]
-# x_hat_states, z_states = simulate_projection(x, V, tau=3, dt=1, n_iter=50, return_states=True)
+# x_hat_states, z_states = simulate_projection(x, V, tau_fast=3, dt=1, n_iter=50, return_states=True)
 # plt.scatter((V.T@x)[0], (V.T@x)[1], color="cornflowerblue")
 # animate_projection(fig, x, z_states)
 
-# n_iter = 20000
-n_iter = 10000
-states = simulate_pca(X, 2, tau=3, tau_W=200, n_update=50, dt=1, n_iter=n_iter, return_states=True)
-states = [s[-500:] for s in states]
+
+fig = plt.figure(figsize=(6,4))
+n_iter = 4000
+states = simulate_pca(X, 2, tau_fast=3, tau_slow=150, data_update=50, dt=1, n_iter=n_iter, return_states=True)
+states = [s[-500::2] for s in states]
+# animate_pca(fig, X, np.broadcast_to(V, (n_iter, *V.shape)), *states, save_name="anim_mnist_start")
 animate_pca(fig, X, np.broadcast_to(V, (n_iter, *V.shape)), *states)
 
